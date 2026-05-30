@@ -14,13 +14,23 @@ transform = transforms.Compose([
 # Download and load the entire dataset
 data_dir = './oxford_pet_data'
 
+def process_mask(x):
+    return (x.squeeze(0).long() - 1).clamp(0, 2)
+
+target_transform = transforms.Compose([
+    transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.NEAREST),
+    transforms.PILToTensor(),
+    transforms.Lambda(process_mask)
+])
+
 # Load train split
 train_dataset = datasets.OxfordIIITPet(
     root=data_dir,
-    split='trainval',  # This includes both train and validation from original split
+    split='trainval',
     download=True,
     transform=transform,
-    target_types='category'
+    target_transform=target_transform,
+    target_types='segmentation'
 )
 
 # Load test split
@@ -29,7 +39,8 @@ test_dataset = datasets.OxfordIIITPet(
     split='test',
     download=True,
     transform=transform,
-    target_types='category'
+    target_transform=target_transform,
+    target_types='segmentation'
 )
 
 # Combine train and test datasets

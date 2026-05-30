@@ -4,3 +4,5 @@ outputs/
 *.pth
 __pycache__/
 .DS_Store
+oxford_pet_data/
+*.tar.gz
