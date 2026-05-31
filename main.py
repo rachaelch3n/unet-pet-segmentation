@@ -207,6 +207,13 @@ def main():
     criterion = SegmentationLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="max",
+        factor=0.5,
+        patience=3,
+    )
+
     trainer = Trainer(model, criterion, optimizer, device)
 
     best_miou = 0.0
@@ -216,6 +223,8 @@ def main():
         train_loss = trainer.train_one_epoch(train_loader)
 
         val_loss, val_miou = trainer.validate(val_loader)
+
+        scheduler.step(val_miou)
 
         print(
             f"[Epoch {epoch + 1}/{num_epochs}] "
@@ -227,7 +236,7 @@ def main():
         if val_miou > best_miou:
             best_miou = val_miou
 
-            torch.save(model.state_dict(), "best_unet_model.pth")
+            torch.save(model.state_dict(), "best_unetplusplus_model.pth")
 
 if __name__ == "__main__":
     main()
