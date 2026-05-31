@@ -142,19 +142,36 @@ class Trainer:
         self.model.eval()
         # TODO: run forward only and compute loss / metrics (IoU, Dice, etc.)
         total_loss = 0
+    total_iou = 0
 
-        for images, masks in loader:
+    for images, masks in loader:
 
-            images = images.to(self.device)
-            masks = masks.to(self.device).long()
+        images = images.to(self.device)
+        masks = masks.to(self.device).long()
 
-            logits = self.model(images)
+        logits = self.model(images)
 
-            loss = self.criterion(logits, masks)
+        loss = self.criterion(logits, masks)
 
-            total_loss += loss.item()
+        total_loss += loss.item()
 
-        return total_loss / len(loader)
+        # PREDICTED CLASS FOR EACH PIXEL
+        preds = torch.argmax(logits, dim=1)
+
+        # COMPUTE IoU
+        intersection = ((preds == masks) & (masks > 0)).sum().item()
+        union = ((preds > 0) | (masks > 0)).sum().item()
+
+        iou = intersection / (union + 1e-6)
+
+        total_iou += iou
+
+    avg_loss = total_loss / len(loader)
+    avg_iou = total_iou / len(loader)
+
+    print(f"mIoU: {avg_iou:.4f}")
+
+    return avg_loss
 
 
 def main():
