@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from main import UNet
+import segmentation_models_pytorch as smp
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,9 +20,14 @@ transform = transforms.Compose([
 ])
 
 # LOAD MODEL
-model = UNet(in_channels=3, num_classes=3).to(device)
+model = smp.Unet(
+    encoder_name="resnet34",
+    encoder_weights=None,
+    in_channels=3,
+    classes=3,
+).to(device)
 
-model.load_state_dict(torch.load("unet_model.pth"))
+model.load_state_dict(torch.load("best_unet_model.pth", map_location=device))
 
 model.eval()
 
