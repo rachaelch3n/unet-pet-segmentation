@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import segmentation_models_pytorch as smp
+import torch.nn.functional as F
 
 from data import train_loader, val_loader
 
@@ -20,6 +21,29 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+class DiceLoss(nn.Module):
+    def __init__(self, smooth=1e-6):
+        super().__init__()
+        self.smooth = smooth
+
+    def forward(self, logits, targets):
+        # logits: [B, C, H, W]
+        # targets: [B, H, W]
+
+        num_classes = logits.shape[1]
+        probs = F.softmax(logits, dim=1)
+
+        targets_one_hot = F.one_hot(targets, num_classes=num_classes)
+        targets_one_hot = targets_one_hot.permute(0, 3, 1, 2).float()
+
+        dims = (0, 2, 3)
+        intersection = torch.sum(probs * targets_one_hot, dims)
+        cardinality = torch.sum(probs + targets_one_hot, dims)
+
+        dice = (2. * intersection + self.smooth) / (cardinality + self.smooth)
+
+        return 1 - dice.mean()
+        
 class UNet(nn.Module):
     """UNet architecture for image segmentation."""
 
@@ -197,14 +221,20 @@ def main():
     learning_rate = 1e-4
     num_classes = 3
 
-    model = smp.UnetPlusPlus(
+    model = smp.Unet(
         encoder_name="resnet34",
         encoder_weights="imagenet",
         in_channels=3,
         classes=3,
     ).to(device)
 
-    criterion = SegmentationLoss().to(device)
+    weights = torch.tensor([1.0, 1.0, 3.0]).to(device)
+    ce_loss = nn.CrossEntropyLoss(weight=weights)
+    dice_loss = DiceLoss()
+
+    def criterion(outputs, masks):
+        return 0.5 * ce_loss(outputs, masks) + 0.5 * dice_loss(outputs, masks)
+
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -236,7 +266,7 @@ def main():
         if val_miou > best_miou:
             best_miou = val_miou
 
-            torch.save(model.state_dict(), "best_unetplusplus_model.pth")
+            torch.save(model.state_dict(), "best_unet_model.pth")
 
 if __name__ == "__main__":
     main()
