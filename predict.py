@@ -1,15 +1,15 @@
 import os
+import pandas as pd
 import numpy as np
 import torch
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+
 from PIL import Image
+from torchvision import transforms
 
 from main import UNet
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# same image transform as training
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -19,42 +19,40 @@ transform = transforms.Compose([
     )
 ])
 
-# load test dataset
-test_dataset = datasets.OxfordIIITPet(
-    root="./oxford_pet_data",
-    split="test",
-    download=False,
-    transform=transform,
-    target_types="segmentation"
-)
-
-# load trained model
+# LOAD MODEL
 model = UNet(in_channels=3, num_classes=3).to(device)
 
 model.load_state_dict(torch.load("unet_model.pth"))
 
 model.eval()
 
-# create predictions folder
+# CREATE PREDICTIONS FOLDER
 os.makedirs("predictions", exist_ok=True)
+
+# READ SAMPLE SUBMISSION
+df = pd.read_csv("sample_submission.csv")
 
 with torch.no_grad():
 
-    for idx in range(len(test_dataset)):
+    for image_id in df["id"]:
 
-        image, _ = test_dataset[idx]
+        # LOAD IMAGE
+        image_path = f"test_images/{image_id}.jpg"
+
+        image = Image.open(image_path).convert("RGB")
+
+        image = transform(image)
 
         image = image.unsqueeze(0).to(device)
 
+        # PREDICT
         logits = model(image)
 
         pred = torch.argmax(logits, dim=1)
 
         pred = pred.squeeze(0).cpu().numpy()
 
-        # save prediction
-        image_id = test_dataset._images[idx].stem
-
+        # SAVE .NPY
         np.save(f"predictions/{image_id}.npy", pred)
 
 print("Predictions saved!")
