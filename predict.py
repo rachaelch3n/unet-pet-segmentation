@@ -27,7 +27,7 @@ model = smp.Unet(
     classes=3,
 ).to(device)
 
-model.load_state_dict(torch.load("best_unet_model.pth", map_location=device))
+model.load_state_dict(torch.load("best_unetplusplus_model.pth", map_location=device))
 
 model.eval()
 

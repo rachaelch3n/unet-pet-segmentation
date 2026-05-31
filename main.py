@@ -197,7 +197,7 @@ def main():
     learning_rate = 1e-4
     num_classes = 3
 
-    model = smp.Unet(
+    model = smp.UnetPlusPlus(
         encoder_name="resnet34",
         encoder_weights="imagenet",
         in_channels=3,
