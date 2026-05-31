@@ -53,7 +53,7 @@ with torch.no_grad():
         pred = pred.squeeze(0).cpu().numpy()
 
         # save prediction
-        image_id = test_dataset._images[idx].split("/")[-1].split(".")[0]
+        image_id = test_dataset._images[idx].stem
 
         np.save(f"predictions/{image_id}.npy", pred)
 
