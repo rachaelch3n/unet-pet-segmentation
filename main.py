@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import segmentation_models_pytorch as smp
 
 from data import train_loader, val_loader
 
@@ -85,7 +86,9 @@ class SegmentationLoss(nn.Module):
         #   - BCEWithLogitsLoss for binary segmentation
         #   - CrossEntropyLoss for multi-class segmentation
         #   - optionally combine with Dice loss
-        self.loss_fn = nn.CrossEntropyLoss()
+        weights = torch.tensor([1.0, 1.0, 3.0])
+        self.register_buffer("weights", weights)
+        self.loss_fn = nn.CrossEntropyLoss(weight=self.weights)
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # TODO: compute and return loss from logits and targets
@@ -137,6 +140,21 @@ class Trainer:
 
         return total_loss / len(loader)
 
+    def mean_iou(self, preds, masks, num_classes=3):
+        ious = []
+
+        for cls in range(num_classes):
+            pred_cls = preds == cls
+            mask_cls = masks == cls
+
+            intersection = (pred_cls & mask_cls).sum().item()
+            union = (pred_cls | mask_cls).sum().item()
+
+            if union > 0:
+                ious.append(intersection / union)
+
+        return sum(ious) / len(ious)
+
     @torch.no_grad()
     def validate(self, loader) -> float:
         self.model.eval()
@@ -159,10 +177,7 @@ class Trainer:
             preds = torch.argmax(logits, dim=1)
 
             # COMPUTE IoU
-            intersection = ((preds == masks) & (masks > 0)).sum().item()
-            union = ((preds > 0) | (masks > 0)).sum().item()
-
-            iou = intersection / (union + 1e-6)
+            iou = self.mean_iou(preds, masks, num_classes=3)
 
             total_iou += iou
 
@@ -171,30 +186,48 @@ class Trainer:
 
         print(f"mIoU: {avg_iou:.4f}")
 
-        return avg_loss
+        return avg_loss, avg_iou
 
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # TODO: set hyperparameters (lr, num_epochs, num_classes, etc.)
-    num_epochs = 10
+    num_epochs = 50
     learning_rate = 1e-4
     num_classes = 3
 
-    model = UNet(in_channels=3, num_classes=num_classes).to(device)
+    model = smp.Unet(
+        encoder_name="resnet34",
+        encoder_weights="imagenet",
+        in_channels=3,
+        classes=3,
+    ).to(device)
+
     criterion = SegmentationLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     trainer = Trainer(model, criterion, optimizer, device)
 
+    best_miou = 0.0
+    
     for epoch in range(num_epochs):
-        train_loss = trainer.train_one_epoch(train_loader)
-        val_loss = trainer.validate(val_loader)
-        print(f"[Epoch {epoch + 1}/{num_epochs}] train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
 
-    # TODO: save best model checkpoint / visualize predictions / report metrics
-    torch.save(model.state_dict(), "unet_model.pth")
+        train_loss = trainer.train_one_epoch(train_loader)
+
+        val_loss, val_miou = trainer.validate(val_loader)
+
+        print(
+            f"[Epoch {epoch + 1}/{num_epochs}] "
+            f"train_loss={train_loss:.4f} "
+            f"val_loss={val_loss:.4f} "
+            f"val_mIoU={val_miou:.4f}"
+        )
+        # TODO: save best model checkpoint / visualize predictions / report metrics
+        if val_miou > best_miou:
+            best_miou = val_miou
+
+            torch.save(model.state_dict(), "best_unet_model.pth")
 
 if __name__ == "__main__":
     main()
