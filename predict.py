@@ -33,26 +33,24 @@ os.makedirs("predictions", exist_ok=True)
 df = pd.read_csv("sample_submission.csv")
 
 with torch.no_grad():
+    for _, row in df.iterrows():
+        image_id = row["id"]
+        H = int(row["height"])
+        W = int(row["width"])
 
-    for image_id in df["id"]:
-
-        # LOAD IMAGE
         image_path = f"test_images/{image_id}.jpg"
-
         image = Image.open(image_path).convert("RGB")
 
-        image = transform(image)
+        image_tensor = transform(image).unsqueeze(0).to(device)
 
-        image = image.unsqueeze(0).to(device)
+        logits = model(image_tensor)
+        pred = torch.argmax(logits, dim=1).squeeze(0).cpu().numpy().astype("uint8")
 
-        # PREDICT
-        logits = model(image)
+        # resize from 224x224 back to original resolution
+        pred_img = Image.fromarray(pred)
+        pred_img = pred_img.resize((W, H), resample=Image.NEAREST)
+        pred = np.array(pred_img).astype("uint8")
 
-        pred = torch.argmax(logits, dim=1)
-
-        pred = pred.squeeze(0).cpu().numpy()
-
-        # SAVE .NPY
         np.save(f"predictions/{image_id}.npy", pred)
 
 print("Predictions saved!")
