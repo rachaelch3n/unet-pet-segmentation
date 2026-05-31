@@ -194,7 +194,7 @@ def main():
         print(f"[Epoch {epoch + 1}/{num_epochs}] train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
 
     # TODO: save best model checkpoint / visualize predictions / report metrics
-
+    torch.save(model.state_dict(), "unet_model.pth")
 
 if __name__ == "__main__":
     main()
