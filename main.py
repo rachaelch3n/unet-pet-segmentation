@@ -204,7 +204,7 @@ def main():
         classes=3,
     ).to(device)
 
-    criterion = SegmentationLoss()
+    criterion = SegmentationLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     trainer = Trainer(model, criterion, optimizer, device)
