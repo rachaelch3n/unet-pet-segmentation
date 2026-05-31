@@ -166,12 +166,12 @@ class Trainer:
 
             total_iou += iou
 
-    avg_loss = total_loss / len(loader)
-    avg_iou = total_iou / len(loader)
+        avg_loss = total_loss / len(loader)
+        avg_iou = total_iou / len(loader)
 
-    print(f"mIoU: {avg_iou:.4f}")
+        print(f"mIoU: {avg_iou:.4f}")
 
-    return avg_loss
+        return avg_loss
 
 
 def main():
