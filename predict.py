@@ -20,11 +20,11 @@ transform = transforms.Compose([
 ])
 
 # LOAD MODEL
-model = smp.Unet(
+model = smp.UnetPlusPlus(
     encoder_name="resnet34",
     encoder_weights=None,
-    in_channels=3,
     classes=3,
+    activation=None
 ).to(device)
 
 model.load_state_dict(torch.load("best_unetplusplus_model.pth", map_location=device))
